@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    {% load static %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="{% static 'HighlightTextarea/jquery.highlight-within-textarea.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'HighlightTextarea/jquery.highlight-within-textarea.css' %}">
+    <title>Spell Check</title>
+
+  </head>
+  <style>
+
+    .btn:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .corrected_word{
+      background-color: #FDFD96;
+    }
+
+    .hwt-content {
+				width: 760px;
+				height: 100px;
+				padding: 20px;
+				border: 1px solid #adb5bd;
+				color: inherit;
+				font: 18px/25px 'Droid Sans Mono', sans-serif;
+			}
+
+			.hwt-input:focus {
+				outline-color: #495057;
+			}
+
+			.hwt-content mark {
+				border-radius: 3px;
+				background-color: #d0bfff;
+			}
+
+			.hwt-content mark.red {
+				background-color: #ffc9c9;
+			}
+
+			.hwt-content mark.blue {
+				background-color: #a3daff;
+			}
+
+			.hwt-content mark.yellow {
+				background-color: #ffec99;
+			}
+
+      #mytextarea{
+        margin-top: 0px; 
+        margin-bottom: 0px; 
+        height: 433px;
+        resize: none;
+      }
+
+  </style>
+  <body>
+    <div class="bg-primary text-white">
+      <h2 class="p-3" id="title-spell">KIỂM TRA CHÍNH TẢ</h2> 
+    </div>
+    <div class="container mt-3">
+      <div class="row">
+        <div class="col-8">
+          <form method="POST" action="{% url 'submitquery' %}" id="post-form">
+              <div class="form-group">
+                <textarea id="mytextarea" class="form-control hwt-input hwt-content"></textarea>
+              </div>
+          </form>
+        </div>
+        <div class="col-4">
+          <div class="container">
+            <div class="row">
+              <div class="col-12 ml-6">
+                <div class="form-check float-left" style="margin-left: 3.5rem;">
+                  <input type="radio" class="form-check-input" value="VN_lang" name="lang_to_check" checked>
+                  <label class="form-check-label" for="VN_lang">Tiếng Việt</label>
+                </div>
+
+                <div class="form-check float-left ml-4">
+                  <input type="radio" class="form-check-input" value="EN_lang" name="lang_to_check">
+                  <label class="form-check-label" for="EN_lang">English</label>
+                </div>
+              </div>
+              <div class="col-12 text-center mt-2">
+                <button type="button" class="btn btn-outline-secondary" id="pre_btn">Quay lại</button>
+                <button type="button" class="btn btn-outline-secondary ml-2" id="next_btn">Tiếp theo</button>
+              </div>
+              <div class="row m-2">
+                <div class="col-6">
+                  <label class="mt-1" id="replace_label">Thay thế:</label>
+                  <input id="replace_input" type="text" class="form-control" readonly>
+                  
+                  <label class="mt-2" id="with_label">Với:</label>
+                  <input id="with_input" type="text" class="form-control">
+                  
+                  <div class="form-group">
+                    <label class="mt-2" id="suggest_label">Gợi ý:</label>
+                    <select multiple class="form-control" id="suggest_word">
+                    </select>
+                  </div>
+                </div>
+                
+                <div class="col-6 text-center">
+                  <button type="button" class="btn btn-primary d-block m-2 btn-block" id="replace_one">Thay</button>
+                  <button type="button" class="btn btn-primary d-block m-2 btn-block" id="replace_all">Thay tất cả</button>
+                  <button type="button" class="btn btn-primary d-block m-2 btn-block" id="clear_all">Xóa</button>
+                  <button type="button" class="btn btn-outline-secondary d-block m-2 btn-block" id="demo_btn">Demo</button>
+                </div>
+              </div>
+              <div class="col-12 mt-0">
+                <button type="button" class="btn btn-primary btn-block" id="submit-but">Kiểm tra chính tả</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body>
+
+  <script>
+    var corrected_global_lst;
+    var count = 0;
+
+   //replace funtion
+   $('#replace_one').click(function(){
+      var content = $('#mytextarea').val().toLowerCase();
+      var replace_word = $('#replace_input').val();
+      var with_word = $('#with_input').val();
+      content = content.replace(replace_word, with_word);
+      $('#mytextarea').val(content);
+
+      delete corrected_global_lst[replace_word];
+      $( "#next_btn" ).trigger( "click" );
+   });
+
+   //replace all function
+   $('#replace_all').click(function(){
+      while(Object.keys(corrected_global_lst).length != 0){
+        $( "#replace_one" ).trigger( "click" );
+      }
+   });
+
+   //clear all function
+   $('#clear_all').click(function(){
+      $('#mytextarea').val("");
+      $.each(corrected_global_lst, function(k, v){
+          delete corrected_global_lst[k];
+      })
+      $('#mytextarea').highlightWithinTextarea('destroy');
+      $( "#next_btn" ).trigger( "click" );
+   });
+
+   //Demo function
+   $('#demo_btn').click(function(){
+      $('#mytextarea').highlightWithinTextarea('destroy');
+      if($('input[type=radio][value=VN_lang]').is(':checked')){
+        var str = 'Quá trìn chúng ta chuẩn bị thông qua nghị quyếc, chúng tôi đã nhận đượt sự chào mừng của gất nhiều tổ chức quốc tế.';
+        $('#mytextarea').val(str);
+      }
+      else{
+        var str = 'An exampel. I beleive these text is is not corect.';
+        $('#mytextarea').val(str);
+      }      
+   });
+    
+    $( "#suggest_word" ).on('change', function(){
+      $('#with_input').val($('#suggest_word').val());
+    });
+
+    function set_box_value(){
+      var corrected_lst = corrected_global_lst;
+      // set value for 'select - option' box
+      $('#suggest_word option').remove()
+
+      for (i = 0; i < corrected_lst[Object.keys(corrected_lst)[count]].length; i++){
+        $('#suggest_word').append($('<option>',{
+            value: corrected_lst[Object.keys(corrected_lst)[count]][i],
+            text: corrected_lst[Object.keys(corrected_lst)[count]][i]
+        }))
+        if(i == 0){
+          $('#suggest_word selected').val(corrected_lst[Object.keys(corrected_lst)[count]][i])
+          var select_first = corrected_lst[Object.keys(corrected_lst)[count]][i];
+          $('#suggest_word').val(select_first);
+        }
+        $('#with_input').val($('#suggest_word').val());
+      }
+
+      // set value for 'replace' box
+      if (!$('#replace_input').val()){
+        $('#replace_input').val(Object.keys(corrected_lst)[0]);
+        count = 0;
+      }
+      else{
+        $('#replace_input').val(Object.keys(corrected_lst)[count]);
+      }
+    }
+
+    $("#next_btn").click(function(){
+      if(count < Object.keys(corrected_global_lst).length - 1){
+        count += 1;
+      }
+      else{
+        count = 0;
+      }
+      $('#mytextarea').highlightWithinTextarea('destroy');
+      corrected_word_highlight(corrected_global_lst);
+      set_box_value();
+    });
+
+    $("#pre_btn").click(function(){
+      if(count > 0){
+        count -= 1;
+      }
+      else{
+        count = Object.keys(corrected_global_lst).length - 1;
+      }
+      $('#mytextarea').highlightWithinTextarea('destroy');
+      corrected_word_highlight(corrected_global_lst);
+      set_box_value();
+    });
+
+    function corrected_word_highlight(corrected_lst){
+        var word = [];
+        $.each(corrected_lst, function(k, v){
+          word.push(k);
+        })
+        current_word = word[count];
+        word.splice(count,1);
+        $('#mytextarea').highlightWithinTextarea({
+          highlight: [
+        {
+            highlight: word,
+            className: 'blue'
+        },
+        {
+          highlight: current_word,
+          className: 'red'
+        }
+    ]
+        });
+    }
+
+    //select to change language
+    function EN_lang_change(){
+      $('#title-spell').text('SPELL CHECK');
+      $('#pre_btn').text('Back');
+      $('#next_btn').text('Next');
+      $('#replace_label').text('Replace:');
+      $('#with_label').text('With:');
+      $('#suggest_label').text('Suggestions:');
+      $('#replace_one').text('Replace');
+      $('#replace_all').text('Replace All');
+      $('#clear_all').text('Clear All');
+      $('#submit-but').text('Spell Check');
+    }
+
+    function VN_lang_change(){
+      $('#title-spell').text('KIỂM TRA CHÍNH TẢ');
+      $('#pre_btn').text('Quay lại');
+      $('#next_btn').text('Tiếp theo');
+      $('#replace_label').text('Thay thế:');
+      $('#with_label').text('Với:');
+      $('#suggest_label').text('Gợi ý:');
+      $('#replace_one').text('Thay');
+      $('#replace_all').text('Thay tất cả');
+      $('#clear_all').text('Xóa');
+      $('#submit-but').text('Kiểm tra chính tả');
+    }
+    
+    $('input[type=radio][name=lang_to_check]').change(function(){
+      if(this.value == 'VN_lang'){
+        VN_lang_change();
+      }
+      if(this.value == 'EN_lang'){
+        EN_lang_change();
+      }
+    });
+
+    function create_post(){
+      corrected_global_lst = [];
+      count = 0;
+      $.ajax({
+        url : "{% url 'submitquery' %}",
+        type : "POST",
+        data : {mytextarea:  $('#mytextarea').val(),
+                is_VN: $('input[type=radio][value=VN_lang]').is(':checked')
+                },
+
+        success : function(json){
+          corrected_global_lst = json;
+          corrected_word_highlight(json);
+          set_box_value();
+        }
+      })
+    }
+
+    $('#post-form').on('submit', function(event){
+      event.preventDefault();
+      create_post();
+    })
+
+    $('#submit-but').click(function(){
+      $('#post-form').submit();
+    })
+  </script>
+</html>
